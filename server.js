@@ -15,56 +15,69 @@ app.use(express.json());
 
 app.use(express.static("public"));
 
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/populatedb", { useNewUrlParser: true });
+mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/fitnessdb",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: false
+  }
+);
 
-db.User.create({ name: "Ernest Hemingway" })
-  .then(dbUser => {
-    console.log(dbUser);
-  })
-  .catch(({ message }) => {
-    console.log(message);
+app.get('/exercise', (req, res) => {
+  res.sendFile(path.join(__dirname + '/public/excercise.html'));
+});
+
+app.get('/stats', (req, res) => {
+  res.sendFile(path.join(__dirname + '/public/stats.html'));
+});
+
+app.post('/api/workouts', ({ body }, res) => {
+  db.Workout.create(body).then(({ _id }) => db.Workout.findOneandupdate({ $push: { exercises: _id } }, { new: true }
+  )
+  ).then((dbWorkouts) => {
+    res.json(dbWorkouts);
+  }).catch((err) => {
+    res.json(err);
   });
-
-app.get("/notes", (req, res) => {
-  db.Note.find({})
-    .then(dbNote => {
-      res.json(dbNote);
-    })
-    .catch(err => {
-      res.json(err);
-    });
 });
 
-app.get("/user", (req, res) => {
-  db.User.find({})
-    .then(dbUser => {
-      res.json(dbUser);
-    })
-    .catch(err => {
-      res.json(err);
-    });
+app.post('/api/workouts/:id', (req, res) => {
+  const id = req.params.id
+  db.Workout.findOneandupdate({ _id: id },
+    { $push: { exercises: req.body } },
+    function (err, sucess) {
+      if (err) {
+        console.log(err)
+      } else {
+        res.send(sucess)
+      }
+    }
+  )
 });
 
-app.post("/submit", ({ body }, res) => {
-  db.Note.create(body)
-    .then(({ _id }) => db.User.findOneAndUpdate({}, { $push: { notes: _id } }, { new: true }))
-    .then(dbUser => {
-      res.json(dbUser);
-    })
-    .catch(err => {
-      res.json(err);
-    });
+
+app.get('/api/workouts', (req, res) => {
+  db.Workout.aggregate([{
+    $addFields: { totalDuration: { $sum: '$exercise.duration' } }
+  }]).then((dbWorkouts) => {
+    res.json(dbWorkouts)
+  }).catch((err) => {
+    res.json(err);
+  });
 });
 
-app.get("/populateduser", (req, res) => {
-  db.User.find({})
-    .populate("notes")
-    .then(dbUser => {
-      res.json(dbUser);
-    })
-    .catch(err => {
-      res.json(err);
-    });
+app.get('/api/workouts/range', (req, res) => {
+  db.Workout.aggregate([{
+    $addFields: {
+      totalDuration: { $sum: '$excercises.duration' },
+      dateDifference: {
+        $subtract: [new Date(), '$day'],
+      },
+    }
+  }]).then(function (dbWorkouts) {
+    res.json(dbWorkouts)
+  });
 });
 
 app.listen(PORT, () => {
