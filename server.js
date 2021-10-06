@@ -34,27 +34,31 @@ app.get('/stats', (req, res) => {
 });
 
 app.post('/api/workouts', ({ body }, res) => {
-  db.Workout.create(body).then(({ _id }) => db.Workout.findOneandupdate({ $push: { exercises: _id } }, { new: true }
-  )
-  ).then((dbWorkouts) => {
-    res.json(dbWorkouts);
-  }).catch((err) => {
-    res.json(err);
-  });
+  db.Workout.create({})
+    .then((dbWorkouts) => {
+      res.json(dbWorkouts);
+    }).catch((err) => {
+      res.json(err);
+    });
 });
 
-app.post('/api/workouts/:id', (req, res) => {
-  const id = req.params.id
-  db.Workout.findOneandupdate({ _id: id },
+
+app.put('/api/workouts/:id', (req, res) => {
+  db.Workout.findByIdAndUpdate(req.params.id,
     { $push: { exercises: req.body } },
-    function (err, sucess) {
-      if (err) {
-        console.log(err)
-      } else {
-        res.send(sucess)
-      }
-    }
+    // function (err, sucess) {
+    //   if (err) {
+    //     console.log(err)
+    //   } else {
+    //     res.send(sucess)
+    //   }
+    // }
   )
+    .then((dbWorkouts) => {
+      res.json(dbWorkouts);
+    }).catch((err) => {
+      res.json(err);
+    });
 });
 
 
@@ -71,13 +75,13 @@ app.get('/api/workouts', (req, res) => {
 app.get('/api/workouts/range', (req, res) => {
   db.Workout.aggregate([{
     $addFields: {
-      totalDuration: { $sum: '$excercises.duration' },
-      dateDifference: {
-        $subtract: [new Date(), '$day'],
-      },
+      totalDuration: { $sum: '$exercises.duration' },
+
     }
-  }]).then(function (dbWorkouts) {
+  }]).sort({ _id: -1 }).limit(7).then(function (dbWorkouts) {
     res.json(dbWorkouts)
+  }).catch((err) => {
+    res.json(err);
   });
 });
 
